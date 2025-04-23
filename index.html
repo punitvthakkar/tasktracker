@@ -105,11 +105,9 @@
 
     <script>
         // --- Firebase Configuration ---
-        // Configuration provided by the user, with CORRECTED databaseURL
         const firebaseConfig = {
-            apiKey: "AIzaSyAs_nyEhtOZlJBtyCV2JA3rjXfSMlYIwQ8", // Replace with your actual API key if needed
+            apiKey: "AIzaSyAs_nyEhtOZlJBtyCV2JA3rjXfSMlYIwQ8",
             authDomain: "board-32e34.firebaseapp.com",
-            // *** CORRECTED databaseURL based on console warning ***
             databaseURL: "https://board-32e34-default-rtdb.europe-west1.firebasedatabase.app",
             projectId: "board-32e34",
             storageBucket: "board-32e34.appspot.com",
@@ -121,22 +119,18 @@
         // --- Initialize Firebase ---
         let firebaseApp;
         let database;
-        // Initialize using the compat library's global 'firebase' object
         if (!firebase.apps.length) {
             firebaseApp = firebase.initializeApp(firebaseConfig);
         } else {
-            firebaseApp = firebase.app(); // Get default app if already initialized
+            firebaseApp = firebase.app();
         }
-        database = firebase.database(); // Use the compat database API
+        database = firebase.database();
 
         // --- DOM Elements ---
-        const columns = document.querySelectorAll('.kanban-column');
         const columnContents = document.querySelectorAll('.kanban-column-content');
         const newTaskInput = document.getElementById('newTaskInput');
         const newTaskDeadline = document.getElementById('newTaskDeadline');
         const addTaskBtn = document.getElementById('addTaskBtn');
-        const todoColumnContent = document.querySelector('#todo .kanban-column-content');
-        const doneColumn = document.getElementById('done');
         const confettiCanvas = document.getElementById('confetti-canvas');
         const trashArea = document.getElementById('trash-area');
         const trashModal = document.getElementById('trash-modal');
@@ -149,13 +143,13 @@
         // --- State (populated by Firebase) ---
         let tasks = {};
         let trashedTasks = {};
-        let draggedTask = null;
-        let draggedElement = null;
+        let draggedTask = null; // Holds the *task object* being dragged
+        let draggedElement = null; // Holds the *HTML element* being dragged
 
         // --- Constants ---
         const MS_PER_DAY = 1000 * 60 * 60 * 24;
-        const ACTIVE_TASKS_PATH = 'kanbanAppState/activeTasks'; // Path in your RTDB
-        const DELETED_TASKS_PATH = 'kanbanAppState/deletedTasks'; // Path in your RTDB
+        const ACTIVE_TASKS_PATH = 'kanbanAppState/activeTasks';
+        const DELETED_TASKS_PATH = 'kanbanAppState/deletedTasks';
 
         // --- Firebase Database References ---
         const activeTasksRef = database.ref(ACTIVE_TASKS_PATH);
@@ -163,38 +157,34 @@
 
         // --- Functions ---
 
-        /** Shows/hides the loading indicator */
         const setLoading = (isLoading) => {
             loadingIndicator.classList.toggle('visible', isLoading);
         };
 
-        /** Calculates days between two dates */
         const daysBetween = (date1, date2) => {
             const utc1 = Date.UTC(date1.getFullYear(), date1.getMonth(), date1.getDate());
             const utc2 = Date.UTC(date2.getFullYear(), date2.getMonth(), date2.getDate());
             return Math.floor((utc2 - utc1) / MS_PER_DAY);
         };
 
-        /** Determines task card background color based on deadline */
         const getDeadlineColorClass = (deadline) => {
             if (!deadline) return 'bg-white';
             const today = new Date();
-            const deadlineDate = new Date(deadline + 'T00:00:00'); // Compare dates only
+            const deadlineDate = new Date(deadline + 'T00:00:00');
             const daysRemaining = daysBetween(today, deadlineDate);
-            if (daysRemaining < 0) return 'bg-red-300';      // Overdue
-            if (daysRemaining === 0) return 'bg-red-200';     // Due today
-            if (daysRemaining <= 2) return 'bg-orange-200'; // 1-2 days
-            if (daysRemaining <= 7) return 'bg-yellow-100'; // 3-7 days
-            return 'bg-white'; // > 7 days
+            if (daysRemaining < 0) return 'bg-red-300';
+            if (daysRemaining === 0) return 'bg-red-200';
+            if (daysRemaining <= 2) return 'bg-orange-200';
+            if (daysRemaining <= 7) return 'bg-yellow-100';
+            return 'bg-white';
         };
 
-        /** Creates a task card HTML element */
         const createTaskElement = (task) => {
             const taskCard = document.createElement('div');
             const deadlineColorClass = getDeadlineColorClass(task.deadline);
             taskCard.classList.add('task-card', deadlineColorClass);
             taskCard.setAttribute('draggable', 'true');
-            taskCard.setAttribute('data-task-id', task.id); // Use Firebase key as ID
+            taskCard.setAttribute('data-task-id', task.id);
 
             const cardContent = document.createElement('div');
             cardContent.classList.add('task-card-content');
@@ -207,7 +197,6 @@
                 const deadlineSpan = document.createElement('span');
                 deadlineSpan.classList.add('task-deadline');
                 try {
-                    // Format date robustly
                     const [year, month, day] = task.deadline.split('-');
                     deadlineSpan.textContent = `Due: ${month}/${day}/${year.slice(-2)}`;
                 } catch (e) {
@@ -218,22 +207,25 @@
             }
             taskCard.appendChild(cardContent);
 
-            // Drag events
             taskCard.addEventListener('dragstart', (e) => {
-                draggedTask = tasks[task.id]; // Get from local state object
+                // Ensure we get the task object from the most recent state
+                draggedTask = tasks[task.id];
                 draggedElement = e.target;
                 if (!draggedTask) {
                     console.error("Drag start: Task not found in local state:", task.id);
                     e.preventDefault(); return;
                 }
                 e.dataTransfer.setData('text/plain', task.id);
+                // Use timeout to ensure styling applies after drag image is generated
                 setTimeout(() => { if(draggedElement) draggedElement.classList.add('dragging'); }, 0);
             });
 
             taskCard.addEventListener('dragend', (e) => {
+                // Clear styles and state regardless of drop success
                 if (draggedElement) draggedElement.classList.remove('dragging');
                 columnContents.forEach(col => col.classList.remove('drag-over'));
                 trashArea.classList.remove('drag-over-trash');
+                // Reset global drag state variables
                 draggedTask = null;
                 draggedElement = null;
             });
@@ -241,17 +233,14 @@
             return taskCard;
         };
 
-        /** Renders active tasks from the local 'tasks' object */
         const renderTasks = () => {
-            columnContents.forEach(contentArea => { contentArea.innerHTML = ''; }); // Clear columns
-
-            Object.values(tasks).forEach(task => { // Iterate over tasks object
+            columnContents.forEach(contentArea => { contentArea.innerHTML = ''; });
+            Object.values(tasks).forEach(task => {
                 const columnElement = document.getElementById(task.column);
                 if (columnElement) {
                     const contentArea = columnElement.querySelector('.kanban-column-content');
                     if (contentArea) {
-                        const taskElement = createTaskElement(task);
-                        contentArea.appendChild(taskElement);
+                        contentArea.appendChild(createTaskElement(task));
                     } else { console.error(`Content area missing for column "${task.column}"`); }
                 } else {
                     console.warn(`Column "${task.column}" not found for task "${task.text}" (ID: ${task.id}). Task not rendered.`);
@@ -259,11 +248,9 @@
             });
         };
 
-        /** Renders trashed tasks from the local 'trashedTasks' object */
         const renderTrashedTasks = () => {
-            trashedTasksList.innerHTML = ''; // Clear list
+            trashedTasksList.innerHTML = '';
             const trashedTaskValues = Object.values(trashedTasks);
-
             if (trashedTaskValues.length === 0) {
                 const msg = document.createElement('li');
                 msg.classList.add('text-gray-500', 'italic');
@@ -274,28 +261,22 @@
                     const listItem = document.createElement('li');
                     listItem.classList.add('trashed-task-item');
                     listItem.setAttribute('data-task-id', task.id);
-
                     const taskTextSpan = document.createElement('span');
                     taskTextSpan.textContent = task.text;
                     taskTextSpan.classList.add('mr-4', 'flex-grow', 'break-words');
-
                     if (task.deadline) {
                         const deadlineInfo = document.createElement('span');
                         deadlineInfo.classList.add('text-xs', 'text-gray-400', 'mr-2');
                          try {
                             const [year, month, day] = task.deadline.split('-');
                             deadlineInfo.textContent = ` (Due: ${month}/${day}/${year.slice(-2)})`;
-                        } catch (e) {
-                             deadlineInfo.textContent = ` (Due: Invalid Date)`;
-                        }
+                        } catch (e) { deadlineInfo.textContent = ` (Due: Invalid Date)`; }
                         taskTextSpan.appendChild(deadlineInfo);
                     }
-
                     const restoreButton = document.createElement('button');
                     restoreButton.textContent = 'Restore';
                     restoreButton.classList.add('restore-btn');
-                    restoreButton.onclick = () => restoreTask(task.id); // Pass ID
-
+                    restoreButton.onclick = () => restoreTask(task.id);
                     listItem.appendChild(taskTextSpan);
                     listItem.appendChild(restoreButton);
                     trashedTasksList.appendChild(listItem);
@@ -303,200 +284,153 @@
             }
         };
 
-        /** Adds a new task to Firebase */
         const addTask = () => {
             const taskText = newTaskInput.value.trim();
-            const taskDeadline = newTaskDeadline.value || null; // Use null if empty
-
+            const taskDeadline = newTaskDeadline.value || null;
             if (taskText === '') {
                 newTaskInput.classList.add('border-red-500');
                 setTimeout(()=> newTaskInput.classList.remove('border-red-500'), 2000);
                 return;
             }
-
-            const newTaskRef = activeTasksRef.push(); // Generate Firebase push key
+            const newTaskRef = activeTasksRef.push();
             const newTaskId = newTaskRef.key;
-
-            const newTaskData = {
-                id: newTaskId, // Store the key as the ID
-                text: taskText,
-                column: 'todo', // Default column
-                deadline: taskDeadline
-            };
-
+            const newTaskData = { id: newTaskId, text: taskText, column: 'todo', deadline: taskDeadline };
             newTaskRef.set(newTaskData)
                 .then(() => {
                     console.log("Task added to Firebase:", newTaskId);
-                    newTaskInput.value = ''; // Clear inputs
-                    newTaskDeadline.value = '';
-                    // UI update is handled by the Firebase listener
+                    newTaskInput.value = ''; newTaskDeadline.value = '';
                 })
-                .catch((error) => {
-                    console.error("Error adding task to Firebase: ", error);
-                    alert("Failed to add task. Check console.");
-                });
+                .catch((error) => { console.error("Error adding task: ", error); alert("Failed to add task."); });
         };
 
-        /** Triggers confetti animation */
         const triggerConfetti = () => {
             confettiInstance({ particleCount: 150, spread: 90, origin: { y: 0.6 }, zIndex: 10000 });
         };
 
-        /** Moves a task from active to deleted in Firebase (atomic update) */
         const trashTask = (taskId) => {
             const taskToTrash = tasks[taskId];
-            if (!taskToTrash) {
-                console.error("Cannot trash: Task not found locally", taskId);
-                return;
-            }
-
+            if (!taskToTrash) { console.error("Cannot trash: Task not found locally", taskId); return; }
             const updates = {};
-            updates[`${ACTIVE_TASKS_PATH}/${taskId}`] = null; // Delete from active
-            updates[`${DELETED_TASKS_PATH}/${taskId}`] = taskToTrash; // Add to deleted
-
+            updates[`${ACTIVE_TASKS_PATH}/${taskId}`] = null;
+            updates[`${DELETED_TASKS_PATH}/${taskId}`] = taskToTrash;
             database.ref().update(updates)
-                .then(() => console.log(`Task "${taskToTrash.text}" moved to trash in Firebase.`))
-                .catch((error) => {
-                    console.error("Error trashing task in Firebase: ", error);
-                    alert("Failed to trash task. Check console.");
-                });
+                .then(() => console.log(`Task "${taskToTrash.text}" moved to trash.`))
+                .catch((error) => { console.error("Error trashing task: ", error); alert("Failed to trash task."); });
         };
 
-        /** Moves a task from deleted back to active ('todo') in Firebase (atomic update) */
         const restoreTask = (taskId) => {
             const taskToRestore = trashedTasks[taskId];
-             if (!taskToRestore) {
-                console.error("Cannot restore: Task not found locally in trash", taskId);
-                return;
-            }
-
-            const restoredTaskData = { ...taskToRestore, column: 'todo' }; // Reset column
-
+             if (!taskToRestore) { console.error("Cannot restore: Task not found locally in trash", taskId); return; }
+            const restoredTaskData = { ...taskToRestore, column: 'todo' };
             const updates = {};
-            updates[`${DELETED_TASKS_PATH}/${taskId}`] = null; // Delete from trash
-            updates[`${ACTIVE_TASKS_PATH}/${taskId}`] = restoredTaskData; // Add back to active
-
+            updates[`${DELETED_TASKS_PATH}/${taskId}`] = null;
+            updates[`${ACTIVE_TASKS_PATH}/${taskId}`] = restoredTaskData;
             database.ref().update(updates)
-                .then(() => {
-                    console.log(`Task "${taskToRestore.text}" restored in Firebase.`);
-                    closeTrashModal(); // Close modal on success
-                })
-                .catch((error) => {
-                    console.error("Error restoring task in Firebase: ", error);
-                    alert("Failed to restore task. Check console.");
-                });
+                .then(() => { console.log(`Task "${taskToRestore.text}" restored.`); closeTrashModal(); })
+                .catch((error) => { console.error("Error restoring task: ", error); alert("Failed to restore task."); });
         };
 
-        /** Opens the trash modal */
-        const openTrashModal = () => {
-            renderTrashedTasks(); // Render based on current local state
-            trashModal.classList.add('active');
-        };
-
-        /** Closes the trash modal */
-        const closeTrashModal = () => {
-            trashModal.classList.remove('active');
-        };
+        const openTrashModal = () => { renderTrashedTasks(); trashModal.classList.add('active'); };
+        const closeTrashModal = () => { trashModal.classList.remove('active'); };
 
         // --- Firebase Realtime Listeners ---
-
-        // Listener for Active Tasks changes
         activeTasksRef.on('value', (snapshot) => {
-            setLoading(false); // Hide loading indicator
-            tasks = snapshot.val() || {}; // Update local state (use {} if null)
-            console.log("Active tasks updated from Firebase:", Object.keys(tasks).length);
-            renderTasks(); // Re-render the board
-        }, (error) => {
             setLoading(false);
-            console.error("Firebase read failed (active tasks): ", error);
-            alert("Failed to load active tasks. Check console and Firebase rules.");
-        });
-
-        // Listener for Deleted Tasks changes
-        deletedTasksRef.on('value', (snapshot) => {
-            trashedTasks = snapshot.val() || {}; // Update local state
-            console.log("Deleted tasks updated from Firebase:", Object.keys(trashedTasks).length);
-            // Re-render modal content ONLY if it's currently open
-            if (trashModal.classList.contains('active')) {
-                renderTrashedTasks();
-            }
+            tasks = snapshot.val() || {};
+            console.log("Active tasks updated:", Object.keys(tasks).length);
+            renderTasks();
         }, (error) => {
-            console.error("Firebase read failed (deleted tasks): ", error);
-            alert("Failed to load deleted tasks. Check console.");
+            setLoading(false); console.error("Firebase read failed (active): ", error); alert("Failed to load active tasks.");
         });
-
+        deletedTasksRef.on('value', (snapshot) => {
+            trashedTasks = snapshot.val() || {};
+            console.log("Deleted tasks updated:", Object.keys(trashedTasks).length);
+            if (trashModal.classList.contains('active')) { renderTrashedTasks(); }
+        }, (error) => {
+            console.error("Firebase read failed (deleted): ", error); alert("Failed to load deleted tasks.");
+        });
 
         // --- Event Listeners ---
-
         addTaskBtn.addEventListener('click', addTask);
         newTaskInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addTask(); });
         newTaskDeadline.addEventListener('keypress', (e) => { if (e.key === 'Enter') addTask(); });
 
         // Column Content Drag and Drop Listeners
         columnContents.forEach(contentArea => {
-            contentArea.addEventListener('dragover', (e) => {
-                e.preventDefault(); // Allow drop
-                if (draggedTask) contentArea.classList.add('drag-over');
-            });
-            contentArea.addEventListener('dragleave', (e) => {
-                // Check relatedTarget to prevent flickering when moving over child elements
-                if (!contentArea.contains(e.relatedTarget)) {
-                    contentArea.classList.remove('drag-over');
-                }
-            });
+            contentArea.addEventListener('dragover', (e) => { e.preventDefault(); if (draggedTask) contentArea.classList.add('drag-over'); });
+            contentArea.addEventListener('dragleave', (e) => { if (!contentArea.contains(e.relatedTarget)) contentArea.classList.remove('drag-over'); });
             contentArea.addEventListener('drop', (e) => {
                 e.preventDefault();
                 contentArea.classList.remove('drag-over');
-                if (!draggedTask) return;
+
+                // Use the task ID from dataTransfer, as draggedTask might be cleared by dragend
+                const taskId = e.dataTransfer.getData('text/plain');
+                const currentTaskState = tasks[taskId]; // Get current state before update
+
+                // Exit if no valid task ID or task state found
+                if (!taskId || !currentTaskState) {
+                     console.warn("Drop event occurred but task ID or state was invalid/missing.");
+                     // Make sure draggedTask is cleared if it wasn't already
+                     draggedTask = null;
+                     draggedElement = null;
+                     return;
+                }
 
                 const targetColumn = contentArea.closest('.kanban-column');
                 if (!targetColumn) { console.error("Drop target column not found."); return; }
                 const targetColumnId = targetColumn.getAttribute('data-column-id');
 
                 // Update Firebase only if the column is different
-                if (draggedTask.column !== targetColumnId) {
-                    const previousColumn = draggedTask.column;
-                    const taskRef = database.ref(`${ACTIVE_TASKS_PATH}/${draggedTask.id}`);
+                if (currentTaskState.column !== targetColumnId) {
+                    // Capture necessary info BEFORE the async call
+                    const previousColumn = currentTaskState.column;
+                    const taskRef = database.ref(`${ACTIVE_TASKS_PATH}/${taskId}`); // Use captured taskId
 
                     taskRef.update({ column: targetColumnId })
                         .then(() => {
-                             console.log(`Task ${draggedTask.id} column updated to ${targetColumnId}.`);
+                             // Use captured variables inside .then()
+                             console.log(`Task ${taskId} column updated to ${targetColumnId}.`);
                              if (targetColumnId === 'done' && previousColumn !== 'done') {
-                                triggerConfetti(); // Celebrate completion
+                                triggerConfetti();
                              }
-                             // UI update handled by listener
+                             // UI update is handled by the 'on value' listener
                         })
                         .catch((error) => {
                             console.error("Error updating task column: ", error);
                             alert("Failed to move task. Check console.");
+                            // Optional: Could re-render here to revert visual state if needed
                         });
                 }
+                 // Ensure drag state is reset even if column didn't change or drop was invalid
+                 draggedTask = null;
+                 draggedElement = null;
             });
         });
 
-        // Trash Area Drag and Drop Listeners
+        // Trash Area Listeners
         trashArea.addEventListener('dragover', (e) => { e.preventDefault(); if (draggedTask) trashArea.classList.add('drag-over-trash'); });
         trashArea.addEventListener('dragleave', (e) => { trashArea.classList.remove('drag-over-trash'); });
         trashArea.addEventListener('drop', (e) => {
             e.preventDefault();
             trashArea.classList.remove('drag-over-trash');
-            if (draggedTask) {
-                trashTask(draggedTask.id); // Handle Firebase update
-            } else { console.warn("Drop on trash without dragged task."); }
+            const taskId = e.dataTransfer.getData('text/plain'); // Get ID from transfer
+            if (taskId && tasks[taskId]) { // Check if ID is valid and task exists
+                trashTask(taskId);
+            } else {
+                console.warn("Drop on trash: Invalid or missing task ID.");
+            }
+             // Reset drag state
+             draggedTask = null;
+             draggedElement = null;
         });
-
-        // Trash Icon Click Listener (Open Modal)
         trashArea.addEventListener('click', openTrashModal);
 
-        // Modal Close Button Listener
+        // Modal Listeners
         modalCloseBtn.addEventListener('click', closeTrashModal);
-
-        // Close modal on backdrop click
         trashModal.addEventListener('click', (e) => { if (e.target === trashModal) closeTrashModal(); });
 
         // --- Initial Load ---
-        setLoading(true); // Show loading on page start
-        // Firebase 'on value' listeners handle the initial data fetch & hide loading
+        setLoading(true);
 
     </script>
 
