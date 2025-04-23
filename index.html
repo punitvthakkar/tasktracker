@@ -3,140 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kanban Task Tracker with Colors & Deadlines</title>
+    <title>Kanban Task Tracker (Firebase Sync)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-database-compat.js"></script>
     <style>
-        /* Custom styles */
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6; /* Light gray background */
-        }
-        .kanban-column {
-            min-height: 300px;
-            max-height: 75vh;
-            overflow-y: auto;
-            background-color: #e5e7eb; /* Column background */
-            border-radius: 0.5rem;
-            padding: 0; /* Remove padding here, add to content area */
-            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-            display: flex; /* Use flexbox for column structure */
-            flex-direction: column; /* Stack header and content vertically */
-        }
-        .kanban-column-header {
-            padding: 0.75rem 1rem; /* Padding for the header */
-            font-size: 1.125rem; /* text-lg */
-            font-weight: 600; /* font-semibold */
-            text-align: center;
-            color: white; /* White text for headers */
-            border-top-left-radius: 0.5rem; /* Match column rounding */
-            border-top-right-radius: 0.5rem;
-            margin-bottom: 0.5rem; /* Space below header */
-            flex-shrink: 0; /* Prevent header from shrinking */
-        }
-        /* Column specific header colors */
-        .header-todo { background-color: #3b82f6; } /* Blue */
-        .header-inprogress { background-color: #f59e0b; } /* Amber */
-        .header-done { background-color: #10b981; } /* Emerald */
-
-        .kanban-column-content {
-            padding: 0 1rem 1rem 1rem; /* Padding for task cards area */
-            flex-grow: 1; /* Allow content area to grow */
-            overflow-y: auto; /* Enable scroll ONLY for content */
-        }
-
-        .task-card {
-            cursor: grab;
-            transition: background-color 0.3s ease, opacity 0.2s ease;
-            border-radius: 0.375rem;
-            padding: 0.75rem;
-            margin-bottom: 0.75rem;
-            background-color: white;
-            box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-            word-wrap: break-word;
-            /* Removed flex from here, handled inside */
-        }
-         .task-card-content {
-             display: flex;
-             justify-content: space-between;
-             align-items: flex-start; /* Align items to top */
-             gap: 0.5rem; /* Space between text and deadline */
-         }
-         .task-text {
-             flex-grow: 1; /* Allow text to take available space */
-         }
-         .task-deadline {
-             font-size: 0.75rem; /* text-xs */
-             color: #6b7280; /* gray-500 */
-             margin-top: 0.25rem; /* Space above deadline */
-             text-align: right; /* Align deadline text right */
-             white-space: nowrap; /* Prevent deadline wrapping */
-             flex-shrink: 0; /* Prevent deadline from shrinking */
-         }
-        .task-card:active {
-            cursor: grabbing;
-        }
-        .dragging {
-            opacity: 0.5;
-            border: 2px dashed #60a5fa;
-            background-color: #eff6ff !important; /* Use important to override deadline colors */
-        }
-        /* Drag over column content area */
-        .kanban-column-content.drag-over {
-            background-color: #dbeafe; /* Lighter blue highlight */
-            outline: 2px dashed #93c5fd;
-            outline-offset: -4px; /* Offset outline inwards */
-        }
-        /* Trash area styles */
-        #trash-area {
-            position: fixed; bottom: 1rem; right: 1rem; width: 60px; height: 60px;
-            background-color: #ef4444; color: white; border-radius: 50%;
-            display: flex; justify-content: center; align-items: center; cursor: pointer;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-            transition: transform 0.2s ease, background-color 0.2s ease; z-index: 1000;
-        }
+        /* Custom styles (same as previous version) */
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .kanban-column { min-height: 300px; max-height: 75vh; background-color: #e5e7eb; border-radius: 0.5rem; padding: 0; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); display: flex; flex-direction: column; }
+        .kanban-column-header { padding: 0.75rem 1rem; font-size: 1.125rem; font-weight: 600; text-align: center; color: white; border-top-left-radius: 0.5rem; border-top-right-radius: 0.5rem; margin-bottom: 0.5rem; flex-shrink: 0; }
+        .header-todo { background-color: #3b82f6; } .header-inprogress { background-color: #f59e0b; } .header-done { background-color: #10b981; }
+        .kanban-column-content { padding: 0 1rem 1rem 1rem; flex-grow: 1; overflow-y: auto; }
+        .task-card { cursor: grab; transition: background-color 0.3s ease, opacity 0.2s ease; border-radius: 0.375rem; padding: 0.75rem; margin-bottom: 0.75rem; background-color: white; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); word-wrap: break-word; }
+        .task-card-content { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; }
+        .task-text { flex-grow: 1; }
+        .task-deadline { font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem; text-align: right; white-space: nowrap; flex-shrink: 0; }
+        .task-card:active { cursor: grabbing; }
+        .dragging { opacity: 0.5; border: 2px dashed #60a5fa; background-color: #eff6ff !important; }
+        .kanban-column-content.drag-over { background-color: #dbeafe; outline: 2px dashed #93c5fd; outline-offset: -4px; }
+        #trash-area { position: fixed; bottom: 1rem; right: 1rem; width: 60px; height: 60px; background-color: #ef4444; color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); transition: transform 0.2s ease, background-color 0.2s ease; z-index: 1000; }
         #trash-area:hover { transform: scale(1.1); }
-        #trash-area.drag-over-trash {
-            background-color: #dc2626; border: 2px dashed white; transform: scale(1.1);
-        }
-        /* Modal styles */
-        #trash-modal {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0, 0, 0, 0.5); display: flex; justify-content: center;
-            align-items: center; z-index: 1001; opacity: 0; pointer-events: none;
-            transition: opacity 0.3s ease-in-out;
-        }
+        #trash-area.drag-over-trash { background-color: #dc2626; border: 2px dashed white; transform: scale(1.1); }
+        #trash-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; z-index: 1001; opacity: 0; pointer-events: none; transition: opacity 0.3s ease-in-out; }
         #trash-modal.active { opacity: 1; pointer-events: auto; }
-        .modal-content {
-            background-color: white; padding: 2rem; border-radius: 0.5rem; width: 90%;
-            max-width: 500px; max-height: 80vh; overflow-y: auto; position: relative;
-        }
-        .modal-close-btn {
-            position: absolute; top: 0.5rem; right: 0.5rem; background: none; border: none;
-            font-size: 1.5rem; cursor: pointer; color: #6b7280;
-        }
+        .modal-content { background-color: white; padding: 2rem; border-radius: 0.5rem; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; position: relative; }
+        .modal-close-btn { position: absolute; top: 0.5rem; right: 0.5rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #6b7280; }
         .modal-close-btn:hover { color: #1f2937; }
-        .trashed-task-item {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 0.5rem 0; border-bottom: 1px solid #e5e7eb;
-        }
+        .trashed-task-item { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #e5e7eb; }
         .trashed-task-item:last-child { border-bottom: none; }
-        .restore-btn {
-            background-color: #10b981; color: white; padding: 0.25rem 0.75rem;
-            border-radius: 0.375rem; font-size: 0.875rem; cursor: pointer;
-            transition: background-color 0.2s ease;
-        }
+        .restore-btn { background-color: #10b981; color: white; padding: 0.25rem 0.75rem; border-radius: 0.375rem; font-size: 0.875rem; cursor: pointer; transition: background-color 0.2s ease; }
         .restore-btn:hover { background-color: #059669; }
-        /* Scrollbar styles (Webkit & Firefox) */
         .kanban-column-content::-webkit-scrollbar, .modal-content::-webkit-scrollbar { width: 8px; }
         .kanban-column-content::-webkit-scrollbar-track, .modal-content::-webkit-scrollbar-track { background: #e5e7eb; border-radius: 0.5rem; }
         .kanban-column-content::-webkit-scrollbar-thumb, .modal-content::-webkit-scrollbar-thumb { background-color: #9ca3af; border-radius: 0.5rem; border: 2px solid #e5e7eb; }
         .kanban-column-content, .modal-content { scrollbar-width: thin; scrollbar-color: #9ca3af #e5e7eb; }
-        /* Confetti canvas */
-        #confetti-canvas {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; z-index: 9999;
+        #confetti-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; }
+        /* Loading Indicator Style */
+        #loading-indicator {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 1.2rem; color: #374151; background-color: rgba(255, 255, 255, 0.8);
+            padding: 1rem 2rem; border-radius: 0.5rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 10000; display: none; /* Hidden by default */
         }
+        #loading-indicator.visible { display: block; }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -144,8 +54,10 @@
 </head>
 <body class="bg-gray-100 p-4 md:p-8">
 
+    <div id="loading-indicator">Loading tasks...</div>
+
     <div class="max-w-6xl mx-auto">
-        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Kanban Task Tracker</h1>
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Kanban Task Tracker (Firebase Sync)</h1>
 
         <div class="mb-6 bg-white p-4 rounded-lg shadow flex flex-wrap items-end gap-2">
              <div class="flex-grow min-w-[200px]">
@@ -156,84 +68,107 @@
                  <label for="newTaskDeadline" class="block text-sm font-medium text-gray-700 mb-1">Deadline (Optional)</label>
                  <input type="date" id="newTaskDeadline" class="border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
              </div>
-             <button id="addTaskBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-md transition duration-200 ease-in-out self-end h-[42px]"> Add Task
+             <button id="addTaskBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-md transition duration-200 ease-in-out self-end h-[42px]">
+                 Add Task
              </button>
          </div>
-
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
             <div id="todo" class="kanban-column" data-column-id="todo">
                 <div class="kanban-column-header header-todo">To Do</div>
-                <div class="kanban-column-content">
-                    </div>
+                <div class="kanban-column-content"></div>
             </div>
             <div id="inprogress" class="kanban-column" data-column-id="inprogress">
                 <div class="kanban-column-header header-inprogress">In Progress</div>
-                <div class="kanban-column-content">
-                    </div>
+                <div class="kanban-column-content"></div>
             </div>
             <div id="done" class="kanban-column" data-column-id="done">
                 <div class="kanban-column-header header-done">Done</div>
-                <div class="kanban-column-content">
-                     </div>
+                <div class="kanban-column-content"></div>
             </div>
         </div>
     </div>
 
     <div id="trash-area" title="Drag tasks here to trash or click to view trashed tasks">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-        </svg>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
     </div>
 
     <div id="trash-modal">
         <div class="modal-content">
             <button class="modal-close-btn" id="modal-close-btn">&times;</button>
             <h2 class="text-2xl font-semibold mb-4 text-gray-800">Trashed Tasks</h2>
-            <ul id="trashed-tasks-list" class="space-y-2">
-                <li id="no-trashed-tasks" class="text-gray-500 italic">No trashed tasks yet.</li>
-            </ul>
+            <ul id="trashed-tasks-list" class="space-y-2"></ul>
         </div>
     </div>
 
     <canvas id="confetti-canvas"></canvas>
 
     <script>
+        // --- Firebase Configuration ---
+        // Configuration provided by the user
+        const firebaseConfig = {
+            apiKey: "AIzaSyAs_nyEhtOZlJBtyCV2JA3rjXfSMlYIwQ8", // Replace with your actual API key if needed
+            authDomain: "board-32e34.firebaseapp.com",
+            // databaseURL is often needed for Realtime Database compat SDK, inferring from projectId
+            databaseURL: "https://board-32e34-default-rtdb.firebaseio.com", // Assumed default RTDB URL structure
+            projectId: "board-32e34",
+            storageBucket: "board-32e34.appspot.com", // Corrected property name
+            messagingSenderId: "970464422643",
+            appId: "1:970464422643:web:8f1c05c3c3fb06ab49a586",
+            measurementId: "G-WGG4T9MEKB" // Optional for RTDB, but included
+        };
+
+        // --- Initialize Firebase ---
+        let firebaseApp;
+        let database;
+        // Initialize using the compat library's global 'firebase' object
+        if (!firebase.apps.length) {
+            firebaseApp = firebase.initializeApp(firebaseConfig);
+        } else {
+            firebaseApp = firebase.app(); // Get default app if already initialized
+        }
+        database = firebase.database(); // Use the compat database API
+
         // --- DOM Elements ---
         const columns = document.querySelectorAll('.kanban-column');
-        const columnContents = document.querySelectorAll('.kanban-column-content'); // Target content areas for drop
+        const columnContents = document.querySelectorAll('.kanban-column-content');
         const newTaskInput = document.getElementById('newTaskInput');
-        const newTaskDeadline = document.getElementById('newTaskDeadline'); // Deadline input
+        const newTaskDeadline = document.getElementById('newTaskDeadline');
         const addTaskBtn = document.getElementById('addTaskBtn');
-        const todoColumnContent = document.querySelector('#todo .kanban-column-content'); // Target content area
-        const doneColumn = document.getElementById('done'); // Still need this for confetti check
+        const todoColumnContent = document.querySelector('#todo .kanban-column-content');
+        const doneColumn = document.getElementById('done');
         const confettiCanvas = document.getElementById('confetti-canvas');
         const trashArea = document.getElementById('trash-area');
         const trashModal = document.getElementById('trash-modal');
         const modalCloseBtn = document.getElementById('modal-close-btn');
         const trashedTasksList = document.getElementById('trashed-tasks-list');
-        const noTrashedTasksMsg = document.getElementById('no-trashed-tasks');
+        const loadingIndicator = document.getElementById('loading-indicator');
 
-        const confettiInstance = confetti.create(confettiCanvas, {
-            resize: true,
-            useWorker: true
-        });
+        const confettiInstance = confetti.create(confettiCanvas, { resize: true, useWorker: true });
 
-        // --- State ---
-        let tasks = []; // { id, text, column, deadline? }
-        let trashedTasks = []; // { id, text, column, deadline? }
+        // --- State (populated by Firebase) ---
+        let tasks = {};
+        let trashedTasks = {};
         let draggedTask = null;
         let draggedElement = null;
 
         // --- Constants ---
         const MS_PER_DAY = 1000 * 60 * 60 * 24;
+        const ACTIVE_TASKS_PATH = 'kanbanAppState/activeTasks'; // Path in your RTDB
+        const DELETED_TASKS_PATH = 'kanbanAppState/deletedTasks'; // Path in your RTDB
+
+        // --- Firebase Database References ---
+        const activeTasksRef = database.ref(ACTIVE_TASKS_PATH);
+        const deletedTasksRef = database.ref(DELETED_TASKS_PATH);
 
         // --- Functions ---
 
-        /** Generates a unique ID */
-        const generateId = () => '_' + Math.random().toString(36).substr(2, 9);
+        /** Shows/hides the loading indicator */
+        const setLoading = (isLoading) => {
+            loadingIndicator.classList.toggle('visible', isLoading);
+        };
 
-        /** Calculates days between two dates (ignoring time) */
+        /** Calculates days between two dates */
         const daysBetween = (date1, date2) => {
             const utc1 = Date.UTC(date1.getFullYear(), date1.getMonth(), date1.getDate());
             const utc2 = Date.UTC(date2.getFullYear(), date2.getMonth(), date2.getDate());
@@ -242,70 +177,62 @@
 
         /** Determines task card background color based on deadline */
         const getDeadlineColorClass = (deadline) => {
-            if (!deadline) return 'bg-white'; // Default if no deadline
-
+            if (!deadline) return 'bg-white';
             const today = new Date();
-            const deadlineDate = new Date(deadline + 'T00:00:00'); // Ensure comparison is date-based
+            const deadlineDate = new Date(deadline + 'T00:00:00'); // Compare dates only
             const daysRemaining = daysBetween(today, deadlineDate);
-
             if (daysRemaining < 0) return 'bg-red-300';      // Overdue
             if (daysRemaining === 0) return 'bg-red-200';     // Due today
-            if (daysRemaining <= 2) return 'bg-orange-200'; // Due in 1-2 days
-            if (daysRemaining <= 7) return 'bg-yellow-100'; // Due in 3-7 days
-            return 'bg-white'; // More than 7 days away
+            if (daysRemaining <= 2) return 'bg-orange-200'; // 1-2 days
+            if (daysRemaining <= 7) return 'bg-yellow-100'; // 3-7 days
+            return 'bg-white'; // > 7 days
         };
 
         /** Creates a task card HTML element */
         const createTaskElement = (task) => {
             const taskCard = document.createElement('div');
             const deadlineColorClass = getDeadlineColorClass(task.deadline);
-            taskCard.classList.add('task-card', deadlineColorClass); // Apply deadline color
+            taskCard.classList.add('task-card', deadlineColorClass);
             taskCard.setAttribute('draggable', 'true');
-            taskCard.setAttribute('data-task-id', task.id);
+            taskCard.setAttribute('data-task-id', task.id); // Use Firebase key as ID
 
-            // Inner structure for text and deadline
             const cardContent = document.createElement('div');
             cardContent.classList.add('task-card-content');
-
             const taskTextSpan = document.createElement('span');
             taskTextSpan.classList.add('task-text');
             taskTextSpan.textContent = task.text;
-
             cardContent.appendChild(taskTextSpan);
 
-            // Add deadline display if it exists
             if (task.deadline) {
                 const deadlineSpan = document.createElement('span');
                 deadlineSpan.classList.add('task-deadline');
-                // Format date for display (optional, could use locale)
-                const [year, month, day] = task.deadline.split('-');
-                deadlineSpan.textContent = `Due: ${month}/${day}/${year.slice(-2)}`; // MM/DD/YY format
+                try {
+                    // Format date robustly
+                    const [year, month, day] = task.deadline.split('-');
+                    deadlineSpan.textContent = `Due: ${month}/${day}/${year.slice(-2)}`;
+                } catch (e) {
+                    console.warn("Could not parse deadline date:", task.deadline);
+                    deadlineSpan.textContent = `Due: Invalid Date`;
+                }
                 cardContent.appendChild(deadlineSpan);
             }
-
             taskCard.appendChild(cardContent);
 
-
-            // Drag events for task cards
+            // Drag events
             taskCard.addEventListener('dragstart', (e) => {
-                draggedTask = tasks.find(t => t.id === task.id);
+                draggedTask = tasks[task.id]; // Get from local state object
                 draggedElement = e.target;
                 if (!draggedTask) {
-                    console.error("Could not find task object for dragging:", task.id);
+                    console.error("Drag start: Task not found in local state:", task.id);
                     e.preventDefault(); return;
                 }
                 e.dataTransfer.setData('text/plain', task.id);
-                setTimeout(() => {
-                    // Check if the element still exists before adding class
-                    if(draggedElement) draggedElement.classList.add('dragging');
-                }, 0);
+                setTimeout(() => { if(draggedElement) draggedElement.classList.add('dragging'); }, 0);
             });
 
             taskCard.addEventListener('dragend', (e) => {
-                if (draggedElement) {
-                    draggedElement.classList.remove('dragging');
-                }
-                columnContents.forEach(col => col.classList.remove('drag-over')); // Use columnContents
+                if (draggedElement) draggedElement.classList.remove('dragging');
+                columnContents.forEach(col => col.classList.remove('drag-over'));
                 trashArea.classList.remove('drag-over-trash');
                 draggedTask = null;
                 draggedElement = null;
@@ -314,57 +241,36 @@
             return taskCard;
         };
 
-        /** Renders active tasks onto the board */
+        /** Renders active tasks from the local 'tasks' object */
         const renderTasks = () => {
-            // Clear existing active tasks from column content areas
-             columnContents.forEach(contentArea => {
-                 contentArea.innerHTML = ''; // Clear only the content area
-             });
+            columnContents.forEach(contentArea => { contentArea.innerHTML = ''; }); // Clear columns
 
-            // Add active tasks to their respective column content areas
-            tasks.forEach(task => {
+            Object.values(tasks).forEach(task => { // Iterate over tasks object
                 const columnElement = document.getElementById(task.column);
                 if (columnElement) {
                     const contentArea = columnElement.querySelector('.kanban-column-content');
                     if (contentArea) {
                         const taskElement = createTaskElement(task);
                         contentArea.appendChild(taskElement);
-                    } else {
-                         console.error(`Content area not found for column "${task.column}"`);
-                    }
+                    } else { console.error(`Content area missing for column "${task.column}"`); }
                 } else {
-                    console.warn(`Column "${task.column}" not found for task "${task.text}". Defaulting to 'todo'.`);
-                    task.column = 'todo';
-                    saveState();
-                    if (todoColumnContent) { // Use the specific content area variable
-                        const taskElement = createTaskElement(task);
-                        todoColumnContent.appendChild(taskElement);
-                    }
+                    console.warn(`Column "${task.column}" not found for task "${task.text}" (ID: ${task.id}). Task not rendered.`);
                 }
             });
         };
 
-        /** Renders trashed tasks into the modal list */
+        /** Renders trashed tasks from the local 'trashedTasks' object */
         const renderTrashedTasks = () => {
-            trashedTasksList.innerHTML = ''; // Clear existing list items
+            trashedTasksList.innerHTML = ''; // Clear list
+            const trashedTaskValues = Object.values(trashedTasks);
 
-            if (trashedTasks.length === 0) {
-                // Create the placeholder message dynamically if it doesn't exist
-                let msg = document.getElementById('no-trashed-tasks');
-                if (!msg) {
-                    msg = document.createElement('li');
-                    msg.id = 'no-trashed-tasks';
-                    msg.classList.add('text-gray-500', 'italic');
-                    msg.textContent = 'No trashed tasks yet.';
-                }
-                msg.style.display = 'list-item'; // Ensure it's visible
+            if (trashedTaskValues.length === 0) {
+                const msg = document.createElement('li');
+                msg.classList.add('text-gray-500', 'italic');
+                msg.textContent = 'No trashed tasks yet.';
                 trashedTasksList.appendChild(msg);
             } else {
-                 // Hide placeholder if it exists
-                const msg = document.getElementById('no-trashed-tasks');
-                if (msg) msg.style.display = 'none';
-
-                trashedTasks.forEach(task => {
+                trashedTaskValues.forEach(task => {
                     const listItem = document.createElement('li');
                     listItem.classList.add('trashed-task-item');
                     listItem.setAttribute('data-task-id', task.id);
@@ -373,20 +279,22 @@
                     taskTextSpan.textContent = task.text;
                     taskTextSpan.classList.add('mr-4', 'flex-grow', 'break-words');
 
-                    // Display deadline in trash view as well
                     if (task.deadline) {
                         const deadlineInfo = document.createElement('span');
                         deadlineInfo.classList.add('text-xs', 'text-gray-400', 'mr-2');
-                        const [year, month, day] = task.deadline.split('-');
-                        deadlineInfo.textContent = `(Due: ${month}/${day}/${year.slice(-2)})`;
-                        taskTextSpan.appendChild(deadlineInfo); // Append deadline info to text span
+                         try {
+                            const [year, month, day] = task.deadline.split('-');
+                            deadlineInfo.textContent = ` (Due: ${month}/${day}/${year.slice(-2)})`;
+                        } catch (e) {
+                             deadlineInfo.textContent = ` (Due: Invalid Date)`;
+                        }
+                        taskTextSpan.appendChild(deadlineInfo);
                     }
-
 
                     const restoreButton = document.createElement('button');
                     restoreButton.textContent = 'Restore';
                     restoreButton.classList.add('restore-btn');
-                    restoreButton.onclick = () => restoreTask(task.id);
+                    restoreButton.onclick = () => restoreTask(task.id); // Pass ID
 
                     listItem.appendChild(taskTextSpan);
                     listItem.appendChild(restoreButton);
@@ -395,106 +303,93 @@
             }
         };
 
-
-        /** Adds a new task to the 'To Do' column */
+        /** Adds a new task to Firebase */
         const addTask = () => {
             const taskText = newTaskInput.value.trim();
-            const taskDeadline = newTaskDeadline.value; // Get deadline value (YYYY-MM-DD)
+            const taskDeadline = newTaskDeadline.value || null; // Use null if empty
 
             if (taskText === '') {
-                // Maybe add visual feedback instead of alert
                 newTaskInput.classList.add('border-red-500');
                 setTimeout(()=> newTaskInput.classList.remove('border-red-500'), 2000);
                 return;
             }
 
-            const newTask = {
-                id: generateId(),
+            const newTaskRef = activeTasksRef.push(); // Generate Firebase push key
+            const newTaskId = newTaskRef.key;
+
+            const newTaskData = {
+                id: newTaskId, // Store the key as the ID
                 text: taskText,
-                column: 'todo',
-                deadline: taskDeadline || null // Store deadline, or null if empty
+                column: 'todo', // Default column
+                deadline: taskDeadline
             };
 
-            tasks.push(newTask);
-            newTaskInput.value = '';
-            newTaskDeadline.value = ''; // Clear deadline input
-            saveState();
-            renderTasks();
+            newTaskRef.set(newTaskData)
+                .then(() => {
+                    console.log("Task added to Firebase:", newTaskId);
+                    newTaskInput.value = ''; // Clear inputs
+                    newTaskDeadline.value = '';
+                    // UI update is handled by the Firebase listener
+                })
+                .catch((error) => {
+                    console.error("Error adding task to Firebase: ", error);
+                    alert("Failed to add task. Check console.");
+                });
         };
 
-        /** Triggers confetti */
+        /** Triggers confetti animation */
         const triggerConfetti = () => {
             confettiInstance({ particleCount: 150, spread: 90, origin: { y: 0.6 }, zIndex: 10000 });
         };
 
-        /** Saves state to localStorage */
-        const saveState = () => {
-            const appState = { activeTasks: tasks, deletedTasks: trashedTasks };
-            localStorage.setItem('kanbanAppState', JSON.stringify(appState));
-        };
-
-        /** Loads state from localStorage */
-        const loadState = () => {
-            const savedState = localStorage.getItem('kanbanAppState');
-            if (savedState) {
-                const appState = JSON.parse(savedState);
-                tasks = appState.activeTasks || [];
-                trashedTasks = appState.deletedTasks || [];
-            } else {
-                // Initialize with example tasks including deadlines
-                const today = new Date();
-                const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-                const nextWeek = new Date(today); nextWeek.setDate(today.getDate() + 7);
-                const overdue = new Date(today); overdue.setDate(today.getDate() - 3);
-
-                const formatDate = (date) => date.toISOString().split('T')[0]; // YYYY-MM-DD
-
-                tasks = [
-                    { id: generateId(), text: "This task is overdue", column: "todo", deadline: formatDate(overdue) },
-                    { id: generateId(), text: "This task is due tomorrow", column: "todo", deadline: formatDate(tomorrow) },
-                    { id: generateId(), text: "Plan weekend", column: "inprogress", deadline: formatDate(nextWeek) },
-                    { id: generateId(), text: "Review project (no deadline)", column: "inprogress", deadline: null },
-                    { id: generateId(), text: "Submit report (completed)", column: "done", deadline: formatDate(today) }
-                ];
-                trashedTasks = [];
-            }
-            renderTasks();
-        };
-
-        /** Moves a task to the trash list */
+        /** Moves a task from active to deleted in Firebase (atomic update) */
         const trashTask = (taskId) => {
-            const taskIndex = tasks.findIndex(t => t.id === taskId);
-            if (taskIndex > -1) {
-                const [taskToTrash] = tasks.splice(taskIndex, 1);
-                trashedTasks.push(taskToTrash);
-                saveState();
-                renderTasks();
-                if (trashModal.classList.contains('active')) renderTrashedTasks();
-                console.log(`Task "${taskToTrash.text}" moved to trash.`);
-            } else {
-                 console.error("Task to trash not found:", taskId);
+            const taskToTrash = tasks[taskId];
+            if (!taskToTrash) {
+                console.error("Cannot trash: Task not found locally", taskId);
+                return;
             }
+
+            const updates = {};
+            updates[`${ACTIVE_TASKS_PATH}/${taskId}`] = null; // Delete from active
+            updates[`${DELETED_TASKS_PATH}/${taskId}`] = taskToTrash; // Add to deleted
+
+            database.ref().update(updates)
+                .then(() => console.log(`Task "${taskToTrash.text}" moved to trash in Firebase.`))
+                .catch((error) => {
+                    console.error("Error trashing task in Firebase: ", error);
+                    alert("Failed to trash task. Check console.");
+                });
         };
 
-        /** Restores a task from trash to 'todo' */
+        /** Moves a task from deleted back to active ('todo') in Firebase (atomic update) */
         const restoreTask = (taskId) => {
-            const taskIndex = trashedTasks.findIndex(t => t.id === taskId);
-            if (taskIndex > -1) {
-                const [taskToRestore] = trashedTasks.splice(taskIndex, 1);
-                taskToRestore.column = 'todo'; // Always restore to 'todo'
-                tasks.push(taskToRestore);
-                saveState();
-                renderTasks();
-                renderTrashedTasks(); // Update modal list
-                console.log(`Task "${taskToRestore.text}" restored.`);
-            } else {
-                 console.error("Task to restore not found:", taskId);
+            const taskToRestore = trashedTasks[taskId];
+             if (!taskToRestore) {
+                console.error("Cannot restore: Task not found locally in trash", taskId);
+                return;
             }
+
+            const restoredTaskData = { ...taskToRestore, column: 'todo' }; // Reset column
+
+            const updates = {};
+            updates[`${DELETED_TASKS_PATH}/${taskId}`] = null; // Delete from trash
+            updates[`${ACTIVE_TASKS_PATH}/${taskId}`] = restoredTaskData; // Add back to active
+
+            database.ref().update(updates)
+                .then(() => {
+                    console.log(`Task "${taskToRestore.text}" restored in Firebase.`);
+                    closeTrashModal(); // Close modal on success
+                })
+                .catch((error) => {
+                    console.error("Error restoring task in Firebase: ", error);
+                    alert("Failed to restore task. Check console.");
+                });
         };
 
         /** Opens the trash modal */
         const openTrashModal = () => {
-            renderTrashedTasks();
+            renderTrashedTasks(); // Render based on current local state
             trashModal.classList.add('active');
         };
 
@@ -503,93 +398,105 @@
             trashModal.classList.remove('active');
         };
 
+        // --- Firebase Realtime Listeners ---
+
+        // Listener for Active Tasks changes
+        activeTasksRef.on('value', (snapshot) => {
+            setLoading(false); // Hide loading indicator
+            tasks = snapshot.val() || {}; // Update local state (use {} if null)
+            console.log("Active tasks updated from Firebase:", Object.keys(tasks).length);
+            renderTasks(); // Re-render the board
+        }, (error) => {
+            setLoading(false);
+            console.error("Firebase read failed (active tasks): ", error);
+            alert("Failed to load active tasks. Check console and Firebase rules.");
+        });
+
+        // Listener for Deleted Tasks changes
+        deletedTasksRef.on('value', (snapshot) => {
+            trashedTasks = snapshot.val() || {}; // Update local state
+            console.log("Deleted tasks updated from Firebase:", Object.keys(trashedTasks).length);
+            // Re-render modal content ONLY if it's currently open
+            if (trashModal.classList.contains('active')) {
+                renderTrashedTasks();
+            }
+        }, (error) => {
+            console.error("Firebase read failed (deleted tasks): ", error);
+            alert("Failed to load deleted tasks. Check console.");
+        });
+
 
         // --- Event Listeners ---
 
         addTaskBtn.addEventListener('click', addTask);
         newTaskInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addTask(); });
-        // Also allow adding task by pressing Enter in deadline field
         newTaskDeadline.addEventListener('keypress', (e) => { if (e.key === 'Enter') addTask(); });
 
-
         // Column Content Drag and Drop Listeners
-        columnContents.forEach(contentArea => { // Attach listeners to content areas
+        columnContents.forEach(contentArea => {
             contentArea.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                if (draggedTask) {
-                    contentArea.classList.add('drag-over'); // Add class to content area
-                }
+                e.preventDefault(); // Allow drop
+                if (draggedTask) contentArea.classList.add('drag-over');
             });
-
             contentArea.addEventListener('dragleave', (e) => {
-                 // Check if the related target is outside the content area
+                // Check relatedTarget to prevent flickering when moving over child elements
                 if (!contentArea.contains(e.relatedTarget)) {
                     contentArea.classList.remove('drag-over');
                 }
             });
-
             contentArea.addEventListener('drop', (e) => {
                 e.preventDefault();
                 contentArea.classList.remove('drag-over');
-
                 if (!draggedTask) return;
 
-                // Find the parent column element to get the column ID
                 const targetColumn = contentArea.closest('.kanban-column');
-                if (!targetColumn) {
-                    console.error("Could not find parent column for drop target.");
-                    return;
-                }
+                if (!targetColumn) { console.error("Drop target column not found."); return; }
                 const targetColumnId = targetColumn.getAttribute('data-column-id');
 
-                const taskIndex = tasks.findIndex(t => t.id === draggedTask.id);
-                if (taskIndex > -1) {
-                    const previousColumn = tasks[taskIndex].column;
-                    tasks[taskIndex].column = targetColumnId;
+                // Update Firebase only if the column is different
+                if (draggedTask.column !== targetColumnId) {
+                    const previousColumn = draggedTask.column;
+                    const taskRef = database.ref(`${ACTIVE_TASKS_PATH}/${draggedTask.id}`);
 
-                    if (targetColumnId === 'done' && previousColumn !== 'done') {
-                        triggerConfetti();
-                    }
-
-                    saveState();
-                    renderTasks();
-                } else {
-                    console.error("Dropped task not found:", draggedTask);
+                    taskRef.update({ column: targetColumnId })
+                        .then(() => {
+                             console.log(`Task ${draggedTask.id} column updated to ${targetColumnId}.`);
+                             if (targetColumnId === 'done' && previousColumn !== 'done') {
+                                triggerConfetti(); // Celebrate completion
+                             }
+                             // UI update handled by listener
+                        })
+                        .catch((error) => {
+                            console.error("Error updating task column: ", error);
+                            alert("Failed to move task. Check console.");
+                        });
                 }
             });
         });
 
         // Trash Area Drag and Drop Listeners
-        trashArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            if (draggedTask) trashArea.classList.add('drag-over-trash');
-        });
-        trashArea.addEventListener('dragleave', (e) => {
-            trashArea.classList.remove('drag-over-trash');
-        });
+        trashArea.addEventListener('dragover', (e) => { e.preventDefault(); if (draggedTask) trashArea.classList.add('drag-over-trash'); });
+        trashArea.addEventListener('dragleave', (e) => { trashArea.classList.remove('drag-over-trash'); });
         trashArea.addEventListener('drop', (e) => {
             e.preventDefault();
             trashArea.classList.remove('drag-over-trash');
             if (draggedTask) {
-                trashTask(draggedTask.id);
-            } else {
-                 console.warn("Drop on trash without dragged task.");
-            }
+                trashTask(draggedTask.id); // Handle Firebase update
+            } else { console.warn("Drop on trash without dragged task."); }
         });
 
-        // Trash Icon Click Listener
+        // Trash Icon Click Listener (Open Modal)
         trashArea.addEventListener('click', openTrashModal);
 
         // Modal Close Button Listener
         modalCloseBtn.addEventListener('click', closeTrashModal);
 
         // Close modal on backdrop click
-        trashModal.addEventListener('click', (e) => {
-            if (e.target === trashModal) closeTrashModal();
-        });
+        trashModal.addEventListener('click', (e) => { if (e.target === trashModal) closeTrashModal(); });
 
         // --- Initial Load ---
-        document.addEventListener('DOMContentLoaded', loadState);
+        setLoading(true); // Show loading on page start
+        // Firebase 'on value' listeners handle the initial data fetch & hide loading
 
     </script>
 
