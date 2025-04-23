@@ -105,17 +105,17 @@
 
     <script>
         // --- Firebase Configuration ---
-        // Configuration provided by the user
+        // Configuration provided by the user, with CORRECTED databaseURL
         const firebaseConfig = {
             apiKey: "AIzaSyAs_nyEhtOZlJBtyCV2JA3rjXfSMlYIwQ8", // Replace with your actual API key if needed
             authDomain: "board-32e34.firebaseapp.com",
-            // databaseURL is often needed for Realtime Database compat SDK, inferring from projectId
-            databaseURL: "https://board-32e34-default-rtdb.firebaseio.com", // Assumed default RTDB URL structure
+            // *** CORRECTED databaseURL based on console warning ***
+            databaseURL: "https://board-32e34-default-rtdb.europe-west1.firebasedatabase.app",
             projectId: "board-32e34",
-            storageBucket: "board-32e34.appspot.com", // Corrected property name
+            storageBucket: "board-32e34.appspot.com",
             messagingSenderId: "970464422643",
             appId: "1:970464422643:web:8f1c05c3c3fb06ab49a586",
-            measurementId: "G-WGG4T9MEKB" // Optional for RTDB, but included
+            measurementId: "G-WGG4T9MEKB"
         };
 
         // --- Initialize Firebase ---
